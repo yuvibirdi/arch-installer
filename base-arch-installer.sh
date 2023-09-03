@@ -155,7 +155,6 @@ fs_setup () {
 		mount /dev/disk/by-partlabel/boot /mnt/boot/efi
 		swapon /dev/disk/by-partlabel/swap
 	fi
-	clear
 }
 echo "Internet Connection is a must to begin."
 echo "Updating Keyrings"
