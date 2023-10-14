@@ -318,6 +318,6 @@ echo "$USERNAME ALL=(ALL) ALL" >> /etc/sudoers.d/$USERNAME
 echo "Installing aur helper (paru) for $USERNAME"
 sudo -u $USERNAME bash -c 'cd ~/ && mkdir -p ~/git && cd ~/git && git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg -si'
 
-# Install other packages as the newly created user
-sudo -u $USERNAME paru -S --noconfirm alacritty btop brave code discord dunst emacs fish ttf-jetbrains-mono-nerd lf light mpv neofetch notion-app-enhanced  ookla-speedtest-bin qbittorrent ranger rofi spotify spicetify-cli thunar vlc python-pywal zathura arc-gtk-theme pairus-dark-icons lx-appearance
+# Install other packages as the newly created 
+paru -S --noconfirm alacritty btop brave code discord dunst emacs fish ttf-jetbrains-mono-nerd lf light mpv neofetch notion-app-enhanced  ookla-speedtest-bin qbittorrent ranger rofi spotify spicetify-cli thunar vlc python-pywal zathura arc-gtk-theme pairus-dark-icons lx-appearance
 rm /post_base-install.sh
