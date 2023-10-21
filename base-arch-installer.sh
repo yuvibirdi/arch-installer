@@ -212,7 +212,7 @@ lsblk
 #Include intel-ucode/amd-ucode if you use intel/amd processor.
 echo "Installing The Base system!"
 sleep 2s
-pacstrap /mnt base base-devel iptables-nft linux linux-headers intel-ucode 
+pacstrap /mnt base base-devel iptables-nft linux linux-headers intel-ucode linux-firmware
 sed -i 's/^#ParallelDownloads = 5$/ParallelDownloads = 15/' /etc/pacman.conf
 echo -e "Generating fstab ..."
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -280,7 +280,7 @@ sleep 3s
 #if you are dualbooting, add os-prober with grub and efibootmgr
 echo "Installing some needed packages"
 sleep 2s
-pacman -Syyu --noconfirm grub btrfs-progs grub-btrfs efibootmgr networkmanager dialog wpa_supplicant mtools dosfstools xdg-user-dirs xdg-utils xdg-desktop-portal-gtk pipewire-pulse  gvfs gvfs-smb nfs-utils inetutils dnsutils bluez bluez-utils cups hplip alsa-utils pipewire pipewire-alsa pipewire-pulse pipewire-jack bash-completion openssh rsync reflector acpi acpi_call tlp virt-manager qemu-desktop qemu edk2-ovmf bridge-utils dnsmasq vde2 iptables-nft ipset firewalld flatpak sof-firmware nss-mdns acpid os-prober ntfs-3g git
+pacman -Syyu --noconfirm grub btrfs-progs grub-btrfs efibootmgr networkmanager dialog wpa_supplicant mtools dosfstools xdg-user-dirs xdg-utils xdg-desktop-portal-gtk pipewire-pulse gvfs gvfs-smb nfs-utils inetutils dnsutils bluez bluez-utils cups hplip alsa-utils pipewire pipewire-alsa pipewire-pulse pipewire-jack bash-completion openssh rsync reflector acpi acpi_call tlp virt-manager qemu-desktop qemu edk2-ovmf bridge-utils dnsmasq vde2 iptables-nft ipset firewalld flatpak sof-firmware nss-mdns acpid os-prober ntfs-3g git
 lsblk
 sleep 2s
 echo "Installing grub bootloader in /boot/efi parttiton"
@@ -319,5 +319,5 @@ echo "Installing aur helper (paru) for $USERNAME"
 sudo -u $USERNAME bash -c 'cd ~/ && mkdir -p ~/git && cd ~/git && git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg -si'
 
 # Install other packages as the newly created 
-paru -S --noconfirm alacritty btop brave code discord dunst emacs fish ttf-jetbrains-mono-nerd lf light mpv neofetch notion-app-enhanced  ookla-speedtest-bin qbittorrent ranger rofi spotify spicetify-cli thunar vlc python-pywal zathura arc-gtk-theme pairus-dark-icons lx-appearance
+paru -S --noconfirm alacritty btop brave code discord dunst emacs fish ttf-jetbrains-mono-nerd lf light mpv neofetch notion-app-enhanced ookla-speedtest-bin qbittorrent ranger rofi spotify spicetify-cli thunar vlc python-pywal zathura arc-gtk-theme pairus-dark-icons lx-appearance
 rm /post_base-install.sh
