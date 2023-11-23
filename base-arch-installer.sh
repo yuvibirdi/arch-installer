@@ -158,6 +158,11 @@ fs_setup () {
                         parted -s "$DRIVE" mkpart primary linux-swap "$BOOT_END" "$SWAP_END" name $((LAST_PARTITION_NO +2)) swap
                         parted -s "$DRIVE" mkpart primary btrfs "$SWAP_END" 100% name $((LAST_PARTITION_NO +3)) rootfs
                 fi
+                if [ "$FSYS" = "ext4" ]; then
+                        parted -s "$DRIVE" mkpart primary fat32 "$END_PART_NUMERIC" "$BOOT_END" name $((LAST_PARTITION_NO +1)) boot
+                        parted -s "$DRIVE" mkpart primary linux-swap "$BOOT_END" "$SWAP_END" name $((LAST_PARTITION_NO +2)) swap
+                        parted -s "$DRIVE" mkpart primary ext4 "$SWAP_END" 100% name $((LAST_PARTITION_NO +3)) rootfs
+                fi
         else
                 echo "COMPLETE DRIVE DETECTED!"
                 sleep 2s
@@ -168,33 +173,54 @@ fs_setup () {
                         parted -s "$DRIVE" mkpart primary linux-swap 1GiB 9GiB name 2 swap
                         parted -s "$DRIVE" mkpart primary btrfs 9GiB 100% name 3 rootfs
                 fi
+                if [ "$FSYS" = "ext4" ]; then
+                        echo "Partitioning the Drive"
+                        parted -s "$DRIVE" mklabel gpt
+                        parted -s "$DRIVE" mkpart primary fat32 1MiB 1GiB name 1 boot
+                        parted -s "$DRIVE" mkpart primary linux-swap 1GiB 9GiB name 2 swap
+                        parted -s "$DRIVE" mkpart primary ext4 9GiB 100% name 3 rootfs
+                fi
 
         fi
         # Continuting with the Formatting
         echo "Formatting the Drive"
-        lsblk
-        mkfs.fat -F32 /dev/disk/by-partlabel/boot
-        mkswap /dev/disk/by-partlabel/swap
-        mkfs.btrfs /dev/disk/by-partlabel/rootfs
+        if [ "$FSYS" = "btrfs" ]; then
+            lsblk
+            mkfs.fat -F32 /dev/disk/by-partlabel/boot
+            mkswap /dev/disk/by-partlabel/swap
+            mkfs.btrfs /dev/disk/by-partlabel/rootfs
 
-        echo "Creating Btrfs Subvolumes"
-        mount /dev/disk/by-partlabel/rootfs /mnt
-        btrfs subvolume create /mnt/@
-        btrfs subvolume create /mnt/@home
-        btrfs subvolume create /mnt/@var
-        btrfs subvolume create /mnt/@snapshots
+            echo "Creating Btrfs Subvolumes"
+            mount /dev/disk/by-partlabel/rootfs /mnt
+            btrfs subvolume create /mnt/@
+            btrfs subvolume create /mnt/@home
+            btrfs subvolume create /mnt/@var
+            btrfs subvolume create /mnt/@snapshots
 
 
-        echo "Creating mount points and mounting subvolumes"
-        umount /dev/disk/by-partlabel/rootfs /mnt
-        mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@ /dev/disk/by-partlabel/rootfs /mnt
-        mkdir -p /mnt/{boot/efi,home,var,.snapshots}
-        mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@home /dev/disk/by-partlabel/rootfs /mnt/home
-        mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@var /dev/disk/by-partlabel/rootfs /mnt/var
-        mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@snapshots /dev/disk/by-partlabel/rootfs /mnt/.snapshots
-        mount /dev/disk/by-partlabel/boot /mnt/boot/efi
-        swapon /dev/disk/by-partlabel/swap
+            echo "Creating mount points and mounting subvolumes"
+            umount /dev/disk/by-partlabel/rootfs /mnt
+            mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@ /dev/disk/by-partlabel/rootfs /mnt
+            mkdir -p /mnt/{boot/efi,home,var,.snapshots}
+            mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@home /dev/disk/by-partlabel/rootfs /mnt/home
+            mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@var /dev/disk/by-partlabel/rootfs /mnt/var
+            mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@snapshots /dev/disk/by-partlabel/rootfs /mnt/.snapshots
+            mount /dev/disk/by-partlabel/boot /mnt/boot/efi
+            swapon /dev/disk/by-partlabel/swap
+        fi
 
+        if [ "$FSYS" = "ext4" ]; then
+            lsblk
+            mkfs.fat -F32 /dev/disk/by-partlabel/boot
+            mkswap /dev/disk/by-partlabel/swap
+            mkfs.ext4 /dev/disk/by-partlabel/rootfs
+
+            echo "Creating mount points and mounting partitions"
+            mount /dev/disk/by-partlabel/rootfs /mnt
+            mkdir -p /mnt/boot/efi
+            mount /dev/disk/by-partlabel/boot /mnt/boot/efi
+            swapon /dev/disk/by-partlabel/swap
+        fi
 }
 
 echo "Internet Connection is a must to begin."
