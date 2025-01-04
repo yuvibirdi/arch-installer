@@ -15,6 +15,8 @@ ________________________________________________________________________________
 |_________________________________________________________________________________________________________|
 
 "
+# asking everything first
+
 # Function Definitions
 drive_selection() {
     lsblk
@@ -245,6 +247,8 @@ genfstab -U /mnt >> /mnt/etc/fstab
 sleep 1s
 echo "Removing subvolid entry in fstab ..."
 sed -i 's/subvolid=[0-9]*,//g' /mnt/etc/fstab
+
+
 sed '1,/^#part2$/d' /root/base-arch-installer.sh > /mnt/post_base-install.sh
 sleep 2s
 chmod +x /mnt/post_base-install.sh
@@ -274,6 +278,10 @@ exit 0
 #reboot
 
 #part2
+
+# $1 = $HOSTNAME
+# $2 = $USERNAME
+# $2 = $USERNAME
 echo "Working inside new root system!!!"
 echo "setting timezone"
 ln -sf /usr/share/zoneinfo/Canada/Eastern /etc/localtime
@@ -309,8 +317,17 @@ sleep 2s
 pacman -Syyu --noconfirm grub btrfs-progs grub-btrfs efibootmgr networkmanager dialog wpa_supplicant mtools dosfstools xdg-user-dirs xdg-utils xdg-desktop-portal-gtk pipewire-pulse gvfs gvfs-smb nfs-utils inetutils dnsutils bluez bluez-utils cups hplip alsa-utils pipewire pipewire-alsa pipewire-pulse pipewire-jack bash-completion openssh rsync reflector acpi acpi_call tlp virt-manager qemu-desktop qemu edk2-ovmf bridge-utils dnsmasq vde2 iptables-nft ipset firewalld flatpak sof-firmware nss-mdns acpid os-prober ntfs-3g git
 lsblk
 sleep 2s
-echo "Installing grub bootloader in /boot/efi parttiton"
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=arch --modules="tpm" --disable-shim-lock
+echo "Installing grub bootloader in /boot/efi partiton"
+#!/bin/bash
+
+# Check if the system is using UEFI
+if [ -d /sys/firmware/efi ]; then
+    echo "UEFI system detected, installing GRUB for EFI"
+    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=arch --modules="tpm" --disable-shim-lock
+else
+    echo "Legacy BIOS system detected, installing GRUB for BIOS"
+    grub-install /dev/sda
+fi
 
 grub-mkconfig -o /boot/grub/grub.cfg
 sleep 2s
@@ -333,7 +350,7 @@ echo "Adding regular user!"
 read -p "Enter username to add a regular user: " USERNAME
 useradd -m -g users -G wheel,audio,video -s /bin/bash $USERNAME
 echo "Enter password for $USERNAME:"
-passwd $USERNAME
+passwd $USERNAME 
 echo "NOTE: ALWAYS REMEMBER THIS USERNAME AND PASSWORD YOU PUT JUST NOW."
 
 # Adding sudo privileges to the user you created
