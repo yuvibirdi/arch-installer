@@ -1,20 +1,4 @@
 #!/bin/sh
-echo -ne "
-__________________________________________________________________________________________________________
-|                                                                                                         |
-| █████  ██████   ██████ ██   ██     ██ ███    ██ ███████ ████████  █████  ██      ██      ███████ ██████ |
-|██   ██ ██   ██ ██      ██   ██     ██ ████   ██ ██         ██    ██   ██ ██      ██      ██      ██   ██|
-|███████ ██████  ██      ███████     ██ ██ ██  ██ ███████    ██    ███████ ██      ██      █████   ██████ |
-|██   ██ ██   ██ ██      ██   ██     ██ ██  ██ ██      ██    ██    ██   ██ ██      ██      ██      ██   ██|
-|██   ██ ██   ██  ██████ ██   ██     ██ ██   ████ ███████    ██    ██   ██ ███████ ███████ ███████ ██   ██|
-|                                                                                                         |
-|---------------------------------------------------------------------------------------------------------|
-|               This is Yuvraj's Arch Linux Install Script that he got of the Internet to Modify          |
-|---------------------------------------------------------------------------------------------------------|
-|                               Base Installation Of Arch Linux Begins Now                                |
-|_________________________________________________________________________________________________________|
-
-"
 # asking everything first
 
 # Function Definitions
@@ -177,7 +161,11 @@ fs_setup () {
                 fi
                 if [ "$FSYS" = "ext4" ]; then
                         echo "Partitioning the Drive"
+		    if [ls -d /sys/firmware/efi ]; then
                         parted -s "$DRIVE" mklabel gpt
+		    else 
+                        parted -s "$DRIVE" mklabel msdos 
+		    fi
                         parted -s "$DRIVE" mkpart primary fat32 1MiB 1GiB name 1 boot
                         parted -s "$DRIVE" mkpart primary linux-swap 1GiB 9GiB name 2 swap
                         parted -s "$DRIVE" mkpart primary ext4 9GiB 100% name 3 rootfs
@@ -321,12 +309,12 @@ echo "Installing grub bootloader in /boot/efi partiton"
 #!/bin/bash
 
 # Check if the system is using UEFI
-if [ -d /sys/firmware/efi ]; then
+if [ls -d /sys/firmware/efi ]; then
     echo "UEFI system detected, installing GRUB for EFI"
     grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=arch --modules="tpm" --disable-shim-lock
 else
     echo "Legacy BIOS system detected, installing GRUB for BIOS"
-    grub-install /dev/sda
+    grub-install --target=i386-pc --recheck --boot-directory=/boot /dev/sda 
 fi
 
 grub-mkconfig -o /boot/grub/grub.cfg
@@ -362,5 +350,5 @@ echo "Installing aur helper (paru) for $USERNAME"
 sudo -u $USERNAME bash -c 'cd ~/ && mkdir -p ~/git && cd ~/git && git clone https://aur.archlinux.org/paru-bin.git && cd paru-bin && makepkg -si'
 
 # Install other packages as the newly created 
-paru -S --noconfirm alacritty btop brave code discord dunst emacs fish ttf-jetbrains-mono-nerd lf light mpv neofetch notion-app-enhanced ookla-speedtest-bin qbittorrent ranger rofi spotify spicetify-cli thunar vlc python-pywal zathura arc-gtk-theme pairus-dark-icons lx-appearance
+# paru -S --noconfirm alacritty btop brave code discord dunst emacs fish ttf-jetbrains-mono-nerd lf light mpv neofetch notion-app-enhanced ookla-speedtest-bin qbittorrent ranger rofi spotify spicetify-cli thunar vlc python-pywal zathura arc-gtk-theme pairus-dark-icons lx-appearance
 rm /post_base-install.sh
