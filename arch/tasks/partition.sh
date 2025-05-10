@@ -127,24 +127,64 @@ create_gpt_full() {
   format_partition "${TARGET_PATH}3"
 }
 
+# --------------------------------------------------------------------
+# Replace the old create_in_gap() in tasks/partition.sh with THIS:
+# --------------------------------------------------------------------
 create_in_gap() {
-  # find largest free gap in MiB
-  read -r start end < <(
-    parted -sm "$TARGET_PATH" unit MiB print free | awk -F: '$1 ~ /^[0-9]+$/ {gsize=$3-$2; if (gsize>max){max=gsize; s=$2; e=$3}} END{print s,e}'
-  )
-  if [[ -z $start || -z $end ]]; then
-    log_error "No suitable free space found"; exit 1
+  # ----- gather disk + partition geometry in MiB --------------------
+  local disk_bytes disk_mib
+  disk_bytes=$(lsblk -brno SIZE "$TARGET_PATH")
+  disk_mib=$(( disk_bytes / 1024 / 1024 ))
+
+  # Build an ordered list of [start_mib end_mib] for existing parts
+  local parts=()
+  while read -r start size; do
+    start=$(( start / 1024 / 1024 ))
+    size=$(( size  / 1024 / 1024 ))
+    parts+=( "$start" "$((start+size))" )
+  done < <(lsblk -brno START,SIZE "$TARGET_PATH")
+
+  # ----- scan for the largest free gap ------------------------------
+  local prev_end=1        # keep first MiB free for GPT/MBR
+  local best_gap=0 gap_s=0 gap_e=0
+
+  for ((i=0; i<${#parts[@]}; i+=2)); do
+    local s=${parts[i]} e=${parts[i+1]}
+    if (( s - prev_end > best_gap )); then
+      best_gap=$(( s - prev_end ))
+      gap_s=$prev_end
+      gap_e=$s
+    fi
+    prev_end=$e
+  done
+  # tail gap
+  if (( disk_mib - prev_end > best_gap )); then
+    best_gap=$(( disk_mib - prev_end ))
+    gap_s=$prev_end
+    gap_e=$disk_mib
   fi
-  local swap_start=$start
-  local swap_end=$((swap_start+8192))   # 8 GiB
-  local root_start=$swap_end
-  local root_end=$end
 
-  parted -s "$TARGET_PATH" mkpart primary linux-swap ${swap_start}MiB ${swap_end}MiB
-  local pnum_swap; pnum_swap=$(lsblk -prno PARTNUM "${TARGET_PATH}$(lsblk -rpno NAME | grep -o '[0-9]*$' | sort -n | tail -1)") # last partnum
-  mkswap "${TARGET_PATH}${pnum_swap}"
+  if (( best_gap < 9000 )); then
+    log_error "Largest free gap (${best_gap} MiB) is too small for swap+root"
+    exit 1
+  fi
 
-  parted -s "$TARGET_PATH" mkpart primary "$INSTALL_FS" ${root_start}MiB ${root_end}MiB
-  local root_part="${TARGET_PATH}$(lsblk -rpno NAME | grep "^${TARGET_PATH}" | sort | tail -1 | grep -o '[0-9]*$')"
+  # ----- carve swap + root in that gap ------------------------------
+  local swap_s=$gap_s
+  local swap_e=$(( swap_s + 8192 ))          # 8 GiB swap
+  local root_s=$swap_e
+  local root_e=$gap_e
+
+  log_info "Creating 8 GiB swap at ${swap_s}-${swap_e} MiB"
+  log_info "Creating ${INSTALL_FS} root at ${root_s}-${root_e} MiB"
+
+  parted -s "$TARGET_PATH" mkpart primary linux-swap  ${swap_s}MiB ${swap_e}MiB
+  local swap_part
+  swap_part=$(lsblk -prno NAME "$TARGET_PATH" | tail -1)
+  mkswap "$swap_part"
+
+  parted -s "$TARGET_PATH" mkpart primary "$INSTALL_FS" ${root_s}MiB ${root_e}MiB
+  local root_part
+  root_part=$(lsblk -prno NAME "$TARGET_PATH" | tail -1)
   format_partition "$root_part"
 }
