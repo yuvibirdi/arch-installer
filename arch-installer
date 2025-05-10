@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -euo pipefail
+# logs
+# Whiptail Setup (add options to just install secure boot if forgot to install in the beginning also add flag)
+# Drive partition (need to care about gpt or dos and weather a partition table already exists or not + efi or bios boot)
+# basic setup
+# pacstrap
+# grub + secure boot
+# install all packages
+# post installation (window manager + desktop environment + sddm)
+# emacs + dotfiles + ssh setup
