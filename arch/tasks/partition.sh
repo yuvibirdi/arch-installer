@@ -1,115 +1,257 @@
 #!/usr/bin/env bash
-# --------------------------------------------------------------------
-# Automatic 3‑slice partitioner:
-#   • Whole‑disk  → wipe + 3 fresh slices
-#   • Single part → replace that slice with 3 fresh slices
-# --------------------------------------------------------------------
+set -eo pipefail
+
+#!/usr/bin/env bash
+# tasks/partition.sh  –  your original script, fitted to the task framework
+# ---------------------------------------------------------------------
 run() {
-  source "$REPO_DIR/lib/ui.sh"   # whiptail helpers
+    source "$REPO_DIR/lib/ui.sh"        # ui_menu, ui_yesno, ui_input …
+    source "$REPO_DIR/lib/logging.sh"   # log_info, log_error, log_success …
 
-  pick_target               # TARGET  TARGET_TYPE=D|P
-  choose_fs                 # ROOT_FS
-  confirm_plan
-  [[ $TARGET_TYPE == "D" ]] && full_disk_layout || slice_layout
-  log_success "Partitioning complete ✔"
-}
+    # ------------------------------------------------------------------
+    # Helper functions (logic unchanged)
+    error() { whiptail --msgbox "Error: $1" 10 60; exit 1; }
+    info()  { whiptail --msgbox "$1" 10 60; }
+    log()   { log_info "$1"; }          # reuse coloured logger
 
-# ---------- pick disk or partition ----------------------------------
-pick_target() {
-  local menu=()
-  while read -r path size model; do
-    menu+=("$path" "$(printf 'DISK  %-8s %s' "$size" "$model")")
-  done < <(lsblk -dprno PATH,SIZE,MODEL,TYPE | awk '$4=="disk"')
+    # Function to list disks and partitions for selection
+    select_target() {
+	local menu=()
+	while IFS= read -r line; do
+            name=$(echo "$line" | awk '{print $1}')
+            size=$(echo "$line" | awk '{print $2}')
+            type=$(echo "$line" | awk '{print $3}')
+            label="$name ($type, $size)"
+            options+=("$name" "$label" off)
+	done < <(lsblk -dnpo NAME,SIZE,TYPE)
 
-  while read -r path size fstype; do
-    menu+=("$path" "$(printf 'PART  %-8s %s' "$size" "${fstype:-EMPTY}")")
-  done < <(lsblk -prno PATH,SIZE,FSTYPE,TYPE | awk '$4=="part"')
+	ui_menu "Select Disk or Partition" \
+		--checklist "Select one disk or partition to use:" \
+		"${menu[@]}"
+    }
+    # Function to create a full disk partition layout
+    create_gpt_layout() {
+	local disk=$1
+	log "Creating full disk partition layout on $disk"
+	info "Creating full disk partition layout on $disk"
+	# Use consistent MiB units for exact sizes
+	parted --script --align optimal "$disk" \
+	       mklabel gpt \
+	       mkpart primary fat32 1MiB 1025MiB \
+	       set 1 boot on \
+	       mkpart primary linux-swap 1025MiB 9217MiB \
+	       mkpart primary ext4 9217MiB 100%
 
-  TARGET=$(ui_menu "Select Install Target" \
-           "Pick a whole disk OR an existing partition slice" \
-           "${menu[@]}") || exit 1
+	# Ensure kernel recognizes the new partitions
+	partprobe "$disk"
+	udevadm settle
+	sleep 2
 
-  [[ $(lsblk -no TYPE "$TARGET") == "disk" ]] && TARGET_TYPE=D || TARGET_TYPE=P
-}
+	mkfs.fat -F32 "${disk}1"
+	mkswap "${disk}2"
+	mkfs.ext4 -F "${disk}3"
+    }
 
-choose_fs() {
-  ROOT_FS=$(ui_menu "Root Filesystem" "Choose a filesystem" \
-             "ext4" "" "btrfs" "" "xfs" "") || exit 1
-}
+    # Function to partition only free space
+    partition_free_space() {
+	local disk=$1
+	# Get free space boundaries in MiB
+	free_space_info=$(parted -s "$disk" unit MiB print free | grep "Free Space" | tail -1)
+	start=$(echo "$free_space_info" | awk '{print $1}' | sed 's/MiB//')
+	end=$(echo "$free_space_info" | awk '{print $2}' | sed 's/MiB//')
 
-confirm_plan() {
-  echo
-  echo "Plan:"
-  if [[ $TARGET_TYPE == "D" ]]; then
-    echo "• Wipe $TARGET and create:"
-  else
-    echo "• Replace $TARGET with:"
-  fi
-  echo "    1 GiB  FAT32  /boot"
-  echo "    8 GiB  swap"
-  echo "    rest   $ROOT_FS  /"
-  ui_yesno "Proceed?" || exit 1
-}
+	# Calculate sizes for partitions within free space
+	total_space=$(echo "$end - $start" | bc)
+	boot_size=1024  # 1GiB in MiB
+	swap_size=8192  # 8GiB in MiB
 
-# ---------- layout for whole disk -----------------------------------
-full_disk_layout() {
-  log_warn "WIPING entire disk $TARGET"
-  wipefs -af "$TARGET"
-  sgdisk --zap-all "$TARGET"
+	# Calculate exact positions
+	boot_end=$(echo "$start + $boot_size" | bc)
+	swap_end=$(echo "$boot_end + $swap_size" | bc)
 
-  log_info "Writing GPT"
-  sgdisk -n 1::+1GiB   -t 1:EF00 -c 1:"boot" "$TARGET"
-  sgdisk -n 2::+8GiB   -t 2:8200 -c 2:"swap" "$TARGET"
-  sgdisk -n 3::-0      -t 3:8300 -c 3:"root" "$TARGET"
+	# Validate - make sure our calculations don't exceed the device
+	if (( $(echo "$swap_end + 1024 >= $end" | bc -l) ));
+	then
+	    error "Not enough free space for requested partition sizes (need at least $((boot_size + swap_size))MiB, but only ${total_space}MiB available)"
+	fi
 
-  partprobe "$TARGET"
-  post_format "${TARGET}1" "${TARGET}2" "${TARGET}3"
-}
+	log "Creating partitions in free space from ${start}MiB to ${end}MiB"
+	info "Creating partitions in free space from ${start}MiB to ${end}MiB"
 
-# ---------- layout inside existing slice ----------------------------
-slice_layout() {
-  local parent disk partnum start end
-  disk=$(lsblk -no PKNAME "$TARGET")
-  parent="/dev/$disk"
-  partnum=$(lsblk -no PARTNUM "$TARGET")
-  read -r start end < <(sgdisk -i "$partnum" "$parent" | awk '/first sector/ {s=$4} /last sector/ {e=$4} END{print s,e}')
+	# Backup the current partition table
+	log "Creating backup of partition table"
+	sfdisk -d "$disk" > /tmp/part_backup.txt
 
-  log_warn "Re‑using slice $TARGET (sectors $start‑$end) on $parent"
-  sgdisk --delete="$partnum" "$parent"
+	# Get partition count BEFORE creating new partitions
+	local current_partitions=($(ls ${disk}[0-9]* 2>/dev/null || echo ""))
+	log "Current partitions: ${current_partitions[*]}"
 
-  local sz_boot=$(( 1 * 1024 * 1024 * 1024 / 512 ))   # sectors
-  local sz_swap=$(( 8 * 1024 * 1024 * 1024 / 512 ))
-  local s_boot=$start
-  local e_boot=$(( s_boot + sz_boot - 1 ))
-  local s_swap=$(( e_boot + 1 ))
-  local e_swap=$(( s_swap + sz_swap - 1 ))
-  local s_root=$(( e_swap + 1 ))
-  local e_root=$end
+	# Create all partitions in one atomic operation - if this fails, no partitions will be created
+	if ! parted -s --align optimal "$disk" -- \
+	     mkpart primary fat32 ${start}MiB ${boot_end}MiB \
+	     mkpart primary linux-swap ${boot_end}MiB ${swap_end}MiB \
+	     mkpart primary ext4 ${swap_end}MiB 100%
+	then
 
-  sgdisk -n $partnum:$s_boot:$e_boot   -t $partnum:EF00 -c $partnum:"boot" "$parent"
-  sgdisk -n $((partnum+1)):$s_swap:$e_swap -t $((partnum+1)):8200 -c $((partnum+1)):"swap" "$parent"
-  sgdisk -n $((partnum+2)):$s_root:$e_root -t $((partnum+2)):8300 -c $((partnum+2)):"root" "$parent"
+	    log "Error creating partitions - restoring backup"
+	    sfdisk "$disk" < /tmp/part_backup.txt
+	    partprobe "$disk"
+	    error "Failed to create partitions. Original partition table restored."
+	fi
+	sleep 3
 
-  partprobe "$parent"
-  local boot="${parent}$partnum"
-  local swap="${parent}$((partnum+1))"
-  local root="${parent}$((partnum+2))"
-  post_format "$boot" "$swap" "$root"
-}
+	# Get NEW partition list after creation
+	local new_partitions=($(ls ${disk}[0-9]* 2>/dev/null))
+	log "New partitions: ${new_partitions[*]}"
 
-# ---------- common formatting logic ---------------------------------
-post_format() {
-  local boot=$1 swap=$2 root=$3
-  log_info "mkfs.vfat  $boot"
-  mkfs.vfat -F32 "$boot"
+	# Find the new partitions (those not in current_partitions)
+	local boot_part=""
+	local swap_part=""
+	local root_part=""
 
-  log_info "mkswap     $swap"
-  mkswap "$swap"
+	# Find the newly created partitions
+	for part in "${new_partitions[@]}"; do
+	    if ! [[ " ${current_partitions[*]} " =~ " ${part} " ]]; then
+		if [[ -z "$boot_part" ]]; then
+		    boot_part="$part"
+		elif [[ -z "$swap_part" ]]; then
+		    swap_part="$part"
+		elif [[ -z "$root_part" ]]; then
+		    root_part="$part"
+		fi
+	    fi
+	done
 
-  log_info "mkfs.$ROOT_FS $root"
-  case "$ROOT_FS" in
-    ext4)  mkfs.ext4  -F "$root" ;;
-    btrfs) mkfs.btrfs -f "$root" ;;
-    xfs)   mkfs.xfs   -f "$root" ;;
-  esac
+	log "Identified new partitions - Boot: $boot_part, Swap: $swap_part, Root: $root_part"
+
+	# Verify partitions exist before formatting
+	if [[ ! -b "$boot_part" ]]; then
+	    error "Boot partition $boot_part not found. Partitioning may have failed."
+	fi
+
+	if [[ ! -b "$swap_part" ]]; then
+	    error "Swap partition $swap_part not found. Partitioning may have failed."
+	fi
+
+	if [[ ! -b "$root_part" ]]; then
+	    error "Root partition $root_part not found. Partitioning may have failed."
+	fi
+
+	# Format the new partitions
+	log "Formatting $boot_part as FAT32 (boot)"
+	mkfs.fat -F32 "$boot_part"
+
+	log "Setting up $swap_part as swap"
+	mkswap "$swap_part"
+
+	log "Formatting $root_part as ext4 (root)"
+	mkfs.ext4 -F "$root_part"
+
+	info "Created and formatted new partitions:\n$boot_part (boot)\n$swap_part (swap)\n$root_part (root)"
+    }
+
+    # Function to wipe filesystem on a partition
+    wipe_fs() {
+	local target=$1
+	log "Wiping filesystem on $target"
+	if wipefs -a "$target"; then
+	    info "Filesystem wiped on $target"
+	else
+	    error "Failed to wipe $target"
+	fi
+    }
+
+    # Main script logic
+    main() {
+	local target
+	target=$(select_target) || error "Selection cancelled"
+
+	# Remove quotes from whiptail output
+	target=${target//\"/}
+	log "Selected target: $target"
+
+	# Check if target is a disk or partition
+	if [[ $target =~ [0-9]$ ]]; then
+	    # Partition selected
+	    log "Partition selected: $target"
+	    if lsblk -fn "$target" | grep -q 'ext4\|xfs\|btrfs'; then
+		log "Existing filesystem found on $target"
+		whiptail --yesno "WARNING: Existing filesystem found on $target! Wipe it?" 10 60 || error "Cancelled"
+		wipe_fs "$target"
+	    fi
+	    # Repartition parent disk
+	    parent_disk=$(lsblk -no PKNAME "$target")
+	    if [[ -z $parent_disk ]]; then
+		error "Cannot determine parent disk of $target"
+	    fi
+	    parent_disk="/dev/$parent_disk"
+	    log "Parent disk: $parent_disk"
+
+	    if whiptail --yesno "WARNING: This will delete ALL existing partitions on $parent_disk. Continue?" 10 60; then
+		create_gpt_layout "$parent_disk"
+	    else
+		error "Operation cancelled"
+	    fi
+	else
+	    # Disk selected
+	    log "Disk selected: $target"
+	    parted_output=$(parted -s "$target" print 2>/dev/null || echo "No partition table")
+	    if echo "$parted_output" | grep -q 'Partition Table'; then
+		# Check for free space
+		free_space=$(parted -s "$target" unit MiB print free | grep 'Free Space' | tail -1)
+		if [[ -n "$free_space" ]]; then
+		    free_size=$(echo "$free_space" | awk '{print $3}' | sed 's/MiB//')
+		    log "Found ${free_size}MiB free space on $target"
+		    if whiptail --yesno "Found ${free_size}MiB free space on $target. Use this free space instead of repartitioning the entire disk?" 10 70; then
+			partition_free_space "$target"
+		    else
+			if whiptail --yesno "WARNING: This will delete ALL existing partitions on $target. Continue?" 10 60; then
+			    create_gpt_layout "$target"
+			else
+			    error "Operation cancelled"
+			fi
+		    fi
+		else
+		    # No free space, treat as partition selection
+		    log "No free space found on $target"
+		    partitions=$(lsblk -lnpo NAME,SIZE,TYPE "$target" | grep part)
+		    if [[ -z "$partitions" ]]; then
+			error "No partitions found on $target and no free space available"
+		    fi
+
+		    if whiptail --yesno "No free space found on $target. Do you want to select an existing partition?" 10 60; then
+			local part_options=()
+			while IFS= read -r line; do
+			    name=$(echo "$line" | awk '{print $1}')
+			    size=$(echo "$line" | awk '{print $2}')
+			    part_options+=("$name" "$size" off)
+			done <<< "$partitions"
+			selected_part=$(whiptail --title "Select Partition" --radiolist "Select a partition to use:" 20 70 15 "${part_options[@]}" 3>&1 1>&2 2>&3) || error "Partition selection cancelled"
+			selected_part=${selected_part//\"/}
+			log "Selected partition: $selected_part"
+
+			if lsblk -fn "$selected_part" | grep -q 'ext4\|xfs\|btrfs'; then
+			    whiptail --yesno "WARNING: Existing filesystem found on $selected_part! Wipe it?" 10 60 || error "Cancelled"
+			    wipe_fs "$selected_part"
+			fi
+			mkfs.ext4 -F "$selected_part"
+			info "Partition $selected_part formatted with ext4 filesystem"
+		    else
+			if whiptail --yesno "WARNING: This will delete ALL existing partitions on $target. Continue?" 10 60; then
+			    create_gpt_layout "$target"
+			else
+			    error "Operation cancelled"
+			fi
+		    fi
+		fi
+	    else
+		# No partition table, create new
+		log "No partition table found on $target"
+		create_gpt_layout "$target"
+	    fi
+	fi
+	info "Partitioning completed successfully!"
+    }
+    # Start script execution
+    main
 }
