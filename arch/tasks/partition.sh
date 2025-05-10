@@ -2,6 +2,8 @@
 # --------------------------------------------------------------------
 # tasks/partition.sh  –  interactive disk / partition setup
 # --------------------------------------------------------------------
+set -o errexit -o nounset -o pipefail
+set -x
 run() {
   source "$REPO_DIR/lib/ui.sh"     # whiptail helpers
 
