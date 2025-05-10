@@ -10,7 +10,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source $"REPO_DIR/lib/logging.sh"
+source "$REPO_DIR/lib/logging.sh"
 
 
 # ---- command‑line parsing ------------------------------------------
