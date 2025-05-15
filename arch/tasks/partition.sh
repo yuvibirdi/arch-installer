@@ -9,10 +9,10 @@ run() {
     source "$REPO_DIR/lib/logging.sh"   # log_info, log_error, log_success …
 
     # ------------------------------------------------------------------
-    # Helper functions (logic unchanged)
-    error() { whiptail --msgbox "Error: $1" 10 60; exit 1; }
-    info()  { whiptail --msgbox "$1" 10 60; }
-    log()   { log_info "$1"; }          # reuse coloured logger
+    # Helper functions
+    error() { log_error "$1"; }
+    info()  { log_warn "$1"; }
+    log()   { log_info "$1"; }          
 
     # Function to list disks and partitions for selection
     select_target() {
