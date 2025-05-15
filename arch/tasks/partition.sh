@@ -58,7 +58,7 @@ run() {
         local part=$1                     # e.g. /dev/sda3
         local disk partnum start end
         disk="/dev/$(lsblk -no PKNAME "$part")"
-        partnum=$(lsblk -no PARTNUM "$part") || error "PARTNUM?"
+	partnum=$(basename "$part" | sed -E 's/.*[^0-9]([0-9]+)$/\1/') || error "Cannot extract partition number from $part"
         read -r start end < <(
             parted -sm "$disk" unit MiB print |
             awk -v p="$partnum" -F: '$1==p {print $2,$3}')
