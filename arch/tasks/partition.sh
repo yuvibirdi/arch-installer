@@ -54,19 +54,19 @@ run() {
 	mkfs.ext4 -F "${disk}3"
     }
     # Function to carve 3 slices inside one existing partition
-     replace_partition_with_slices() {
+    replace_partition_with_slices() {
         local part=$1                     # e.g. /dev/sda3
         local disk partnum start end
         disk="/dev/$(lsblk -no PKNAME "$part")"
 	partnum=$(basename "$part" | sed -E 's/.*[^0-9]([0-9]+)$/\1/') || error "Cannot extract partition number from $part"
         read -r start end < <(
             parted -sm "$disk" unit MiB print |
-            awk -v p="$partnum" -F: '$1==p {gsub(/MiB/,"",$2); gsub(/MiB/,"",$3); print $2,$3}')
+		awk -v p="$partnum" -F: '$1==p {gsub(/MiB/,"",$2); gsub(/MiB/,"",$3); print $2,$3}')
         [[ -z $start || -z $end ]] && error "Could not locate slice range (MiB)"
 
         ui_yesno "Delete $part and create boot+swap+root inside?\n\nRange: ${start}-${end} MiB" ||
             error "Cancelled"
-# ---- backup table (for rollback) --------------------------
+	# ---- backup table (for rollback) --------------------------
         sfdisk -d "$disk" > /tmp/part_backup.txt
 
         log "Deleting partition $partnum on $disk"
@@ -120,10 +120,18 @@ run() {
     # Function to partition only free space
     partition_free_space() {
 	local disk=$1
-	# Get free space boundaries in MiB
-	free_space_info=$(parted -s "$disk" unit MiB print free | grep "Free Space" | tail -1)
-	start=$(echo "$free_space_info" | awk '{print $1}' | sed 's/MiB//')
-	end=$(echo "$free_space_info" | awk '{print $2}' | sed 's/MiB//')
+	# Pick the largest free gap on the disk
+	read -r start end gap <<< $(
+            parted -sm "$disk" unit MiB print free |
+		awk -F: '
+          $1 ~ /^[0-9]+$/ {
+            gsub(/MiB/,"",$2); gsub(/MiB/,"",$3);
+            g=$3-$2;
+            if (g>max){max=g;s=$2;e=$3}
+          }
+          END{if(max>0) printf "%d %d %d",s,e,max}'
+	     )
+	[ -z "$gap" ] && error "No free gap found"
 
 	# Calculate sizes for partitions within free space
 	total_space=$(echo "$end - $start" | bc)
@@ -256,14 +264,17 @@ run() {
         fi
 
         # ----- disk has a table; check for usable free space ----------
-        free_space_line=$(parted -s "$target" unit MiB print free | awk '/Free Space/ {print $2,$3}' | tail -1)
-        read -r free_start free_end <<< "$free_space_line"
-	#remove "MiB" and keep numeric part
-        free_start=$(sed 's/MiB//' <<< "$free_start")
-        free_end=$(sed 's/MiB//' <<< "$free_end")
-        # compute gap size (integer MiB)
-        free_size=$(printf "%.0f" "$(echo "$free_end - $free_start" | bc)")
-
+	read -r free_start free_end free_size <<< $(
+            parted -sm "$target" unit MiB print free |
+		awk -F: '
+              $1 ~ /^[0-9]+$/ {
+                gsub(/MiB/,"",$2); gsub(/MiB/,"",$3);
+                gap=$3-$2;
+                if (gap>max){max=gap;s=$2;e=$3}
+              }
+              END{if(max>0) printf "%d %d %d",s,e,max}'
+             )
+        free_size=${free_size:-0}
         if (( free_size > BOOT_MB + SWAP_MB + 2 )); then
             log "Found ${free_size}MiB free space"
             if whiptail --yesno "Found ${free_size}MiB free space on $target.\nUse this gap instead of repartitioning the disk?" 10 70; then
