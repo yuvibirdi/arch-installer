@@ -124,7 +124,7 @@ run() {
 	read -r start end gap <<< $(
             parted -sm "$disk" unit MiB print free |
 		awk -F: '
-          $1 ~ /^[0-9]+$/ {
+          $1=="free"  {
             gsub(/MiB/,"",$2); gsub(/MiB/,"",$3);
             g=$3-$2;
             if (g>max){max=g;s=$2;e=$3}
@@ -267,7 +267,7 @@ run() {
 	read -r free_start free_end free_size <<< $(
             parted -sm "$target" unit MiB print free |
 		awk -F: '
-              $1 ~ /^[0-9]+$/ {
+              $1=="free" {
                 gsub(/MiB/,"",$2); gsub(/MiB/,"",$3);
                 gap=$3-$2;
                 if (gap>max){max=gap;s=$2;e=$3}
