@@ -22,11 +22,11 @@ run() {
             size=$(echo "$line" | awk '{print $2}')
             type=$(echo "$line" | awk '{print $3}')
             label="$name ($type, $size)"
-            options+=("$name" "$label" off)
+            menu+=("$name" "$label" off)
 	done < <(lsblk -dnpo NAME,SIZE,TYPE)
 
 	ui_menu "Select Disk or Partition" \
-		--checklist "Select one disk or partition to use:" \
+		"Select one disk or partition to use:" \
 		"${menu[@]}"
     }
     # Function to create a full disk partition layout
