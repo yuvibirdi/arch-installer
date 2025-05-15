@@ -245,8 +245,10 @@ run() {
         if [[ $target =~ [0-9]$ ]]; then
             log "Partition selected: $target"
             if lsblk -fn "$target" | grep -qE 'ext4|xfs|btrfs'; then
-                whiptail --yesno "WARNING: Existing filesystem on $target!  Wipe it?" 10 60 || error "Cancelled"
+                ui_yesno "WARNING: Existing filesystem on $target!  Wipe it and carves slices?" || error "Cancelled"
                 wipe_fs "$target"
+	    else 
+                ui_yesno "This will carve new slices into $target and erase all contents. Proceed?" || error "Cancelled"
             fi
             replace_partition_with_slices "$target"
             info "Partitioning completed successfully!"
@@ -277,7 +279,7 @@ run() {
         free_size=${free_size:-0}
         if (( free_size > BOOT_MB + SWAP_MB + 2 )); then
             log "Found ${free_size}MiB free space"
-            if whiptail --yesno "Found ${free_size}MiB free space on $target.\nUse this gap instead of repartitioning the disk?" 10 70; then
+            if ui_yesno "Found ${free_size}MiB free space on $target.\nUse this gap instead of repartitioning the disk?"; then
                 partition_free_space "$target"
                 info "Partitioning completed successfully!"
                 return
@@ -291,7 +293,7 @@ run() {
             error "Disk has no partitions and no free space?"
         fi
 
-        if whiptail --yesno "Disk is full.  Pick an existing partition to reuse?" 10 60; then
+        if ui_yesno "Disk is full.  Pick an existing partition to reuse?"; then
             local part_options=()
             while IFS= read -r line; do
                 name=$(awk '{print $1}' <<< "$line")
@@ -301,12 +303,12 @@ run() {
 
             picked=$(ui_menu "Select Partition" "Choose a partition to replace:" "${part_options[@]}") || error "Cancelled"
             if lsblk -fn "$picked" | grep -qE 'ext4|xfs|btrfs'; then
-                whiptail --yesno "WARNING: Existing filesystem on $picked!  Delete it?" 10 60 || error "Cancelled"
+                ui_yesno "WARNING: Existing filesystem on $picked!  Delete it?" || error "Cancelled"
             fi
             replace_partition_with_slices "$picked"
         else
             # ----- user prefers whole‑disk wipe ----------------------
-            whiptail --yesno "WARNING: This will DELETE **ALL** partitions on $target.\nContinue?" 10 60 || error "Cancelled"
+            ui_yesno "WARNING: This will DELETE **ALL** partitions on $target.\nContinue?" || error "Cancelled"
             create_gpt_layout "$target"
         fi
 
