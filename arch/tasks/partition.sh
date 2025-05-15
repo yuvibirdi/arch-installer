@@ -9,6 +9,8 @@ run() {
     source "$REPO_DIR/lib/logging.sh"   # log_info, log_error, log_success …
 
     # ------------------------------------------------------------------
+    BOOT_MB=1024
+    SWAP_MB=8192
     # Helper functions
     error() { log_error "$1"; }
     info()  { log_warn "$1"; }
