@@ -121,18 +121,16 @@ run() {
     partition_free_space() {
 	local disk=$1
 	# Pick the largest free gap on the disk
-	read -r start end gap <<< $(
-            parted -sm "$disk" unit MiB print free |
+	read -r free_start free_end free_size <<< $(
+	    parted -sm "$target" unit MiB print free |
 		awk -F: '
-          $1=="free"  {
-            gsub(/MiB/,"",$2); gsub(/MiB/,"",$3);
-            g=$3-$2;
-            if (g>max){max=g;s=$2;e=$3}
-          }
-          END{if(max>0) printf "%d %d %d",s,e,max}'
+	  /free/ {
+	    gsub(/MiB/,"",$2); gsub(/MiB/,"",$3);
+	    gap = $3 - $2;
+	    if (gap > max) { max = gap; s = $2; e = $3 }
+	  }
+	  END { if (max > 0) printf "%d %d %d", s, e, max }'
 	     )
-	[ -z "$gap" ] && error "No free gap found"
-
 	# Calculate sizes for partitions within free space
 	total_space=$(echo "$end - $start" | bc)
 	boot_size=1024  # 1GiB in MiB
@@ -265,15 +263,15 @@ run() {
 
         # ----- disk has a table; check for usable free space ----------
 	read -r free_start free_end free_size <<< $(
-            parted -sm "$target" unit MiB print free |
+	    parted -sm "$target" unit MiB print free |
 		awk -F: '
-              $1=="free" {
-                gsub(/MiB/,"",$2); gsub(/MiB/,"",$3);
-                gap=$3-$2;
-                if (gap>max){max=gap;s=$2;e=$3}
-              }
-              END{if(max>0) printf "%d %d %d",s,e,max}'
-             )
+	  /free/ {
+	    gsub(/MiB/,"",$2); gsub(/MiB/,"",$3);
+	    gap = $3 - $2;
+	    if (gap > max) { max = gap; s = $2; e = $3 }
+	  }
+	  END { if (max > 0) printf "%d %d %d", s, e, max }'
+	     )
         free_size=${free_size:-0}
         if (( free_size > BOOT_MB + SWAP_MB + 2 )); then
             log "Found ${free_size}MiB free space"
