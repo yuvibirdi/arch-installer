@@ -22,7 +22,7 @@ run() {
             size=$(echo "$line" | awk '{print $2}')
             type=$(echo "$line" | awk '{print $3}')
             label="$name ($type, $size)"
-            menu+=("$name" "$label" off)
+            menu+=("$name" "$label")
 	done < <(lsblk -dnpo NAME,SIZE,TYPE)
 
 	ui_menu "Select Disk or Partition" \
