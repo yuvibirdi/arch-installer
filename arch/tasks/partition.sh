@@ -241,7 +241,11 @@ run() {
         # ----- disk has a table; check for usable free space ----------
         free_space_line=$(parted -s "$target" unit MiB print free | awk '/Free Space/ {print $2,$3}' | tail -1)
         read -r free_start free_end <<< "$free_space_line"
-        free_size=$(( free_end - free_start ))
+	#remove "MiB" and keep numeric part
+        free_start=$(sed 's/MiB//' <<< "$free_start")
+        free_end=$(sed 's/MiB//' <<< "$free_end")
+        # compute gap size (integer MiB)
+        free_size=$(printf "%.0f" "$(echo "$free_end - $free_start" | bc)")
 
         if (( free_size > BOOT_MB + SWAP_MB + 2 )); then
             log "Found ${free_size}MiB free space"
