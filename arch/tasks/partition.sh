@@ -61,15 +61,20 @@ run() {
 	partnum=$(basename "$part" | sed -E 's/.*[^0-9]([0-9]+)$/\1/') || error "Cannot extract partition number from $part"
         read -r start end < <(
             parted -sm "$disk" unit MiB print |
-            awk -v p="$partnum" -F: '$1==p {print $2,$3}')
-        [[ -z $start || -z $end ]] && error "Could not locate slice range"
+            awk -v p="$partnum" -F: '$1==p {gsub(/MiB/,"",$2); gsub(/MiB/,"",$3); print $2,$3}')
+        [[ -z $start || -z $end ]] && error "Could not locate slice range (MiB)"
 
         ui_yesno "Delete $part and create boot+swap+root inside?\n\nRange: ${start}-${end} MiB" ||
             error "Cancelled"
+# ---- backup table (for rollback) --------------------------
+        sfdisk -d "$disk" > /tmp/part_backup.txt
 
         log "Deleting partition $partnum on $disk"
-        parted -s "$disk" rm "$partnum"
-
+        parted -s "$disk" rm "$partnum" || {
+            sfdisk "$disk" < /tmp/part_backup.txt
+            error "Failed to delete slice – table restored"
+        }
+	
         local boot_s=$start
         local boot_e=$(( boot_s + BOOT_MB ))
         local swap_s=$boot_e
@@ -77,14 +82,24 @@ run() {
         (( swap_e >= end )) && error "Slice too small"
 
         log "Creating boot ${boot_s}-${boot_e} MiB"
-        parted -s "$disk" -- mkpart primary fat32  ${boot_s}MiB ${boot_e}MiB
-        parted -s "$disk" set 1 boot on
+        parted -s "$disk" -- mkpart primary fat32  ${boot_s}MiB ${boot_e}MiB || {
+            sfdisk "$disk" < /tmp/part_backup.txt
+            error "Failed creating boot slice – table restored"
+        }
+        boot_idx=$(parted -sm "$disk" print | tail -1 | cut -d: -f1)
+        parted -s "$disk" set "$boot_idx" boot on
 
         log "Creating swap ${swap_s}-${swap_e} MiB"
-        parted -s "$disk" -- mkpart primary linux-swap ${swap_s}MiB ${swap_e}MiB
+        parted -s "$disk" -- mkpart primary linux-swap ${swap_s}MiB ${swap_e}MiB || {
+            sfdisk "$disk" < /tmp/part_backup.txt
+            error "Failed creating swap slice – table restored"
+        }
 
         log "Creating root ${swap_e}-${end} MiB"
-        parted -s "$disk" -- mkpart primary ext4 ${swap_e}MiB ${end}MiB
+        parted -s "$disk" -- mkpart primary ext4 ${swap_e}MiB ${end}MiB || {
+            sfdisk "$disk" < /tmp/part_backup.txt
+            error "Failed creating root slice – table restored"
+        }
 
         partprobe "$disk"; udevadm settle
 
