@@ -17,11 +17,13 @@ run() {
     log()   { log_info "$1"; }          
     # Prompt user to choose root filesystem type
     select_root_fs() {
-	ui_menu "Select Filesystem" \
-		"Choose the filesystem to use for the root partition:" \
-		"ext4" "Default, general-purpose Linux FS" \
-		"btrfs" "Advanced FS with snapshotting" \
-		"xfs" "High-performance FS, no shrink support"
+	local fs
+	fs=$(ui_menu "Select Filesystem" \
+		     "Choose the filesystem to use for the root partition:" \
+		     "ext4" "Default, general-purpose Linux FS" \
+		     "btrfs" "Advanced FS with snapshotting" \
+		     "xfs" "High-performance FS, no shrink support")
+	echo "$fs"
     }
     mount_and_format_partitions() {
 	local boot_p=$1
