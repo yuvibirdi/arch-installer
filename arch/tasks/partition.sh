@@ -14,7 +14,7 @@ run() {
     # Helper functions
     error() {
 	log_error "$1"
-	echo -e "\e[90m[DEBUG]\e[0m Exiting from ${FUNCNAME[1]} at line ${BASH_LINENO[0]}" >&2
+	# echo -e "\e[90m[DEBUG]\e[0m Exiting from ${FUNCNAME[1]} at line ${BASH_LINENO[0]}" >&2
 	exit 1
     }
     info()  { log_warn "$1"; }
