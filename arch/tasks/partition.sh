@@ -245,7 +245,7 @@ run() {
         # ========  PARTITION CHOSEN  =================================
         if [[ $target =~ [0-9]$ ]]; then
 	    log "Partition selected: $target"
-	    if lsblk -fn "$target" | grep -qE 'ext4|xfs|btrfs'; then
+	    if [[ -n $(lsblk -no FSTYPE "$target") ]]; then
 		if ui_yesno "WARNING: Existing filesystem on $target! Wipe it and carve slices?"; then
 		    wipe_fs "$target"
 		    replace_partition_with_slices "$target"
@@ -307,7 +307,7 @@ run() {
             done <<< "$part_list"
 
             picked=$(ui_menu "Select Partition" "Choose a partition to replace:" "${part_options[@]}") || error "Cancelled"
-            if lsblk -fn "$picked" | grep -qE 'ext4|xfs|btrfs'; then
+	    if [[ -n $(lsblk -no FSTYPE "$target") ]]; then
                 ui_yesno "WARNING: Existing filesystem on $picked!  Delete it?" || error "Cancelled"
             fi
             replace_partition_with_slices "$picked"
