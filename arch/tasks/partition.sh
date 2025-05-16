@@ -243,18 +243,22 @@ run() {
 
         # ========  PARTITION CHOSEN  =================================
         if [[ $target =~ [0-9]$ ]]; then
-            log "Partition selected: $target"
-            if lsblk -fn "$target" | grep -qE 'ext4|xfs|btrfs'; then
-                ui_yesno "WARNING: Existing filesystem on $target!  Wipe it and carves slices?" || error "Cancelled"
-                wipe_fs "$target"
-	    else 
-                ui_yesno "This will carve new slices into $target and erase all contents. Proceed?" || error "Cancelled"
-            fi
-            replace_partition_with_slices "$target"
-            info "Partitioning completed successfully!"
-            return
-        fi
-
+	    log "Partition selected: $target"
+	    if lsblk -fn "$target" | grep -qE 'ext4|xfs|btrfs'; then
+		if ui_yesno "WARNING: Existing filesystem on $target! Wipe it and carve slices?"; then
+		    wipe_fs "$target"
+		    replace_partition_with_slices "$target"
+		else
+		    error "Cancelled"
+		fi
+	    else
+		if ui_yesno "This will carve new slices into $target and erase all contents. Proceed?"; then
+		    replace_partition_with_slices "$target"
+		else
+		    error "Cancelled"
+		fi
+	    fi
+	fi
         # ========  DISK CHOSEN  ======================================
         log "Disk selected: $target"
 
