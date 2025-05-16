@@ -158,12 +158,7 @@ run() {
         mapfile -t new_parts < <(lsblk -prno NAME "$disk" | tail -3)
         boot_p=${new_parts[0]} ; swap_p=${new_parts[1]} ; root_p=${new_parts[2]}
 
-        log "Formatting $boot_p → FAT32"
-        mkfs.fat -F32 "$boot_p"
-        log "mkswap $swap_p"
-        mkswap "$swap_p"
-        log "Formatting $root_p → ext4"
-        mkfs.ext4 -F "$root_p"
+	mount_and_format_partitions "$boot_p" "$swap_p" "$root_p"
 
         info "Replaced $part with:\n  $boot_p (boot)\n  $swap_p (swap)\n  $root_p (root)"
     }
