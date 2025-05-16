@@ -334,35 +334,36 @@ run() {
                 info "Partitioning completed successfully!"
                 return
             fi
-        fi
+	fi
 
-        # ----- no useful gap – offer existing partition path ----------
-        log "No sizeable free space on $target"
-        part_list=$(lsblk -lnpo NAME,SIZE,TYPE "$target" | grep part)
-        if [[ -z $part_list ]]; then
-            error "Disk has no partitions and no free space?"
-        fi
+	# ----- no useful gap – offer existing partition path ----------
+	log "No sizeable free space on $target"
 
-        if ui_yesno "Disk is full.  Pick an existing partition to reuse?"; then
-            local part_options=()
-            while IFS= read -r line; do
-                name=$(awk '{print $1}' <<< "$line")
-                size=$(awk '{print $2}' <<< "$line")
-                part_options+=("$name" "$size")
-            done <<< "$part_list"
+	part_list=$(lsblk -lnpo NAME,SIZE,TYPE "$target" | grep part)
+	[[ -z $part_list ]] && error "Disk has no partitions and no free space?"
 
-            picked=$(ui_menu "Select Partition" "Choose a partition to replace:" "${part_options[@]}") || error "Cancelled"
-	    if [[ -n $(lsblk -no FSTYPE "$target") ]]; then
-                ui_yesno "WARNING: Existing filesystem on $picked!  Delete it?" || error "Cancelled"
-            fi
-            replace_partition_with_slices "$picked"
-        else
-            # ----- user prefers whole‑disk wipe ----------------------
-            ui_yesno "WARNING: This will DELETE **ALL** partitions on $target.\nContinue?" || error "Cancelled"
-            create_gpt_layout "$target"
-        fi
+	if ui_yesno "Disk is full. Pick an existing partition to reuse?"; then
+	    local part_options=()
+	    while IFS= read -r line; do
+		name=$(awk '{print $1}' <<< "$line")
+		size=$(awk '{print $2}' <<< "$line")
+		part_options+=("$name" "$size")
+	    done <<< "$part_list"
 
-        info "Partitioning completed successfully!"
+	    picked=$(ui_menu "Select Partition" "Choose a partition to replace:" "${part_options[@]}") || error "Cancelled"
+
+	    #check FSTYPE of picked partition, not target disk
+	    if [[ -n $(lsblk -no FSTYPE "$picked") ]]; then
+		ui_yesno "WARNING: Existing filesystem on $picked! Delete it?" || error "Cancelled"
+	    fi
+
+	    replace_partition_with_slices "$picked"
+	else
+	    ui_yesno "WARNING: This will DELETE **ALL** partitions on $target.\nContinue?" || error "Cancelled"
+	    create_gpt_layout "$target"
+	fi
+
+	info "Partitioning completed successfully!"
     }
 
     # -----------------------------------------------------------------
