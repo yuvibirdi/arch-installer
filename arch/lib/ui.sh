@@ -14,9 +14,11 @@ ui_menu() {            # ui_menu <title> <prompt> <array items...>
   echo "$choice"
 }
 
-ui_yesno() {           # ui_yesno <text>
+ui_yesno() {
   _skip && return 0
-  whiptail --yesno "$1" 10 60
+  if ! whiptail --yesno "$1" 10 60; then
+    return 1
+  fi
 }
 
 ui_input() {           # ui_input <prompt> [default]
