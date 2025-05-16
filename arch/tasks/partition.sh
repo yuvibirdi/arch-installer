@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bas
 set -eo pipefail
 
 #!/usr/bin/env bash
@@ -12,7 +12,7 @@ run() {
     BOOT_MB=1024
     SWAP_MB=8192
     # Helper functions
-    error() { log_error "$1"; }
+    error() { log_error "$1"; exit 1}
     info()  { log_warn "$1"; }
     log()   { log_info "$1"; }          
     # Prompt user to choose root filesystem type
