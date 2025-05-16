@@ -15,6 +15,56 @@ run() {
     error() { log_error "$1"; }
     info()  { log_warn "$1"; }
     log()   { log_info "$1"; }          
+    # Prompt user to choose root filesystem type
+    select_root_fs() {
+	ui_menu "Select Filesystem" \
+		"Choose the filesystem to use for the root partition:" \
+		"ext4" "Default, general-purpose Linux FS" \
+		"btrfs" "Advanced FS with snapshotting" \
+		"xfs" "High-performance FS, no shrink support"
+    }
+    mount_and_format_partitions() {
+	local boot_p=$1
+	local swap_p=$2
+	local root_p=$3
+
+	case "$FS_TYPE" in
+            ext4)
+		mkfs.fat -F32 "$boot_p"
+		mkswap "$swap_p"
+		mkfs.ext4 -F "$root_p"
+
+		mount "$root_p" /mnt
+		mkdir -p /mnt/boot/efi
+		mount "$boot_p" /mnt/boot/efi
+		swapon "$swap_p"
+		;;
+            btrfs)
+		mkfs.fat -F32 "$boot_p"
+		mkswap "$swap_p"
+		mkfs.btrfs -f "$root_p"
+
+		mount "$root_p" /mnt
+		btrfs subvolume create /mnt/@
+		btrfs subvolume create /mnt/@home
+		btrfs subvolume create /mnt/@var
+		btrfs subvolume create /mnt/@snapshots
+		umount /mnt
+
+		mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@ "$root_p" /mnt
+		mkdir -p /mnt/{boot/efi,home,var,.snapshots}
+		mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@home "$root_p" /mnt/home
+		mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@var "$root_p" /mnt/var
+		mount -o noatime,compress=zstd,ssd,discard=async,space_cache=v2,subvol=@snapshots "$root_p" /mnt/.snapshots
+
+		mount "$boot_p" /mnt/boot/efi
+		swapon "$swap_p"
+		;;
+            *)
+		error "Unsupported FS type for mounting: $FS_TYPE"
+		;;
+	esac
+    }
 
     # Function to list disks and partitions for selection
     select_target() {
@@ -49,9 +99,10 @@ run() {
 	udevadm settle
 	sleep 2
 
-	mkfs.fat -F32 "${disk}1"
-	mkswap "${disk}2"
-	mkfs.ext4 -F "${disk}3"
+	mapfile -t parts < <(lsblk -prno NAME "$disk" | tail -3)
+	boot_part=${parts[0]} ; swap_part=${parts[1]} ; root_part=${parts[2]}
+
+	mount_and_format_partitions "$boot_part" "$swap_part" "$root_part"
     }
     # Function to carve 3 slices inside one existing partition
     replace_partition_with_slices() {
@@ -211,15 +262,7 @@ run() {
 	    error "Root partition $root_part not found. Partitioning may have failed."
 	fi
 
-	# Format the new partitions
-	log "Formatting $boot_part as FAT32 (boot)"
-	mkfs.fat -F32 "$boot_part"
-
-	log "Setting up $swap_part as swap"
-	mkswap "$swap_part"
-
-	log "Formatting $root_part as ext4 (root)"
-	mkfs.ext4 -F "$root_part"
+	mount_and_format_partitions "$boot_part" "$swap_part" "$root_part"
 
 	info "Created and formatted new partitions:\n$boot_part (boot)\n$swap_part (swap)\n$root_part (root)"
     }
@@ -240,8 +283,9 @@ run() {
         local target
         target=$(select_target) || error "Selection cancelled"
         target=${target//\"/}
-        log "Selected target: $target"
-
+	log "Selected target: $target"
+	FS_TYPE=$(select_root_fs) || error "Filesystem selection cancelled"
+	log "Selected root filesystem: $FS_TYPE"
         # ========  PARTITION CHOSEN  =================================
         if [[ $target =~ [0-9]$ ]]; then
 	    log "Partition selected: $target"
