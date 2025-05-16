@@ -22,7 +22,7 @@ run() {
 		     "Choose the filesystem to use for the root partition:" \
 		     "ext4" "Default, general-purpose Linux FS" \
 		     "btrfs" "Advanced FS with snapshotting" \
-		     "xfs" "High-performance FS, no shrink support") || error "File System not chosen"
+		     "xfs" "High-performance FS, no shrink support") || return 1 
 	echo "$fs"
     }
     mount_and_format_partitions() {
