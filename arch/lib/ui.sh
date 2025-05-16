@@ -17,7 +17,11 @@ ui_menu() {            # ui_menu <title> <prompt> <array items...>
 ui_yesno() {
   _skip && return 0
   if ! whiptail --yesno "$1" 10 60; then
+    echo "[UI] NO selected: $1" >&2
     return 1
+  else
+    echo "[UI] YES selected: $1" >&2
+    return 0
   fi
 }
 
