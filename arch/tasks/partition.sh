@@ -132,7 +132,8 @@ run() {
           END{if(max>0) printf "%d %d %d",s,e,max}'
 	     )
 	[ -z "$gap" ] && error "No free gap found"
-
+	# claming start
+	start=$(( start < 1 ? 1 : start ))
 	# Calculate sizes for partitions within free space
 	total_space=$(echo "$end - $start" | bc)
 	boot_size=1024  # 1GiB in MiB
