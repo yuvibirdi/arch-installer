@@ -28,31 +28,31 @@ run() {
     git clone --depth=1 https://gitlab.com/yuvibirdi/dwm_config.git "$HOME_DIR/git/dwm_config" || error "Failed to clone dwm_config"
 
     log "Building dwm"
-    make -C "$HOME_DIR/git/dwm_config" || error "Failed to build dwm"
-    make -C "$HOME_DIR/git/dwm_config" install || error "Failed to install dwm"
+    sudo make -C "$HOME_DIR/git/dwm_config" || error "Failed to build dwm"
+    sudo make -C "$HOME_DIR/git/dwm_config" install || error "Failed to install dwm"
 
     log "Building dwmblocks"
-    make -C "$HOME_DIR/git/dwm_config/dwmblocks" || error "Failed to build dwmblocks"
-    make -C "$HOME_DIR/git/dwm_config/dwmblocks" install || error "Failed to install dwmblocks"
+    sudo make -C "$HOME_DIR/git/dwm_config/dwmblocks" || error "Failed to build dwmblocks"
+    sudo make -C "$HOME_DIR/git/dwm_config/dwmblocks" install || error "Failed to install dwmblocks"
 
     log "Installing SDDM and required packages"
-    pacman -S --noconfirm sddm xorg xorg-xinit libx11 libxft libxinerama make gcc git
+    sudo pacman -S --noconfirm sddm xorg xorg-xinit libx11 libxft libxinerama sudo make gcc git
 
     log "Installing sddm-chinese-painting-theme from AUR using paru"
     paru -S --noconfirm sddm-chinese-painting-theme || error "Failed to install SDDM theme"
 
     log "Enabling SDDM service"
-    systemctl enable sddm
+    sudo systemctl enable sddm --now
 
     log "Setting SDDM theme to chinese-painting"
-    mkdir -p /etc/sddm.conf.d
+    sudo mkdir -p /etc/sddm.conf.d
     cat <<EOF > /etc/sddm.conf.d/theme.conf
 [Theme]
 Current=chinese-painting
 EOF
 
     log "Creating dwm.desktop file for SDDM"
-    mkdir -p /usr/share/xsessions
+    sudo mkdir -p /usr/share/xsessions
     cat <<EOF > /usr/share/xsessions/dwm.desktop
 [Desktop Entry]
 Encoding=UTF-8
