@@ -71,9 +71,11 @@ run(){
 
     EXTRA_PKGS=()
     [[ "$FS_TYPE" == "btrfs" ]] && EXTRA_PKGS+=(grub-btrfs btrfs-progs)
+    EXTRA_PKGS_STRING="${EXTRA_PKGS[*]}"
 
     arch-chroot /mnt bash -s <<EOF
 set -eo pipefail
+EXTRA_PKGS=($EXTRA_PKGS_STRING)
 
 ln -sf /usr/share/zoneinfo/Canada/Eastern /etc/localtime
 hwclock --systohc
@@ -89,7 +91,15 @@ echo "127.0.0.1   localhost" >> /etc/hosts
 echo "::1         localhost" >> /etc/hosts
 echo "127.0.1.1   $HOSTNAME.localdomain $HOSTNAME" >> /etc/hosts
 
-pacman -Syu --noconfirm --needed grub efibootmgr networkmanager dosfstools mtools neovim sudo emacs os-prober ntfs-3g "${EXTRA_PKGS[@]}"
+PKG_LIST=(grub efibootmgr networkmanager dosfstools mtools neovim sudo emacs os-prober ntfs-3g "\${EXTRA_PKGS[@]}")
+
+# Remove any empty strings (just in case)
+FILTERED_PKGS=()
+for pkg in "\${PKG_LIST[@]}"; do
+  [[ -n "\$pkg" ]] && FILTERED_PKGS+=("\$pkg")
+done
+
+pacman -Syu --noconfirm --needed "\${FILTERED_PKGS[@]}"
 
 # Enable os-prober for GRUB
 sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub || echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub
@@ -104,11 +114,14 @@ echo "$ROOTPW" | passwd --stdin root 2>/dev/null || echo -e "$ROOTPW\n$ROOTPW" |
 useradd -m -G wheel,audio,video -s /bin/bash $USERNAME
 echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME
 echo "$USERPW" | passwd --stdin $USERNAME 2>/dev/null || echo -e "$USERPW\n$USERPW" | passwd $USERNAME
+
+mkdir -p /home/$USERNAME/installer
+cp -r /root/installer/* /home/$USERNAME/installer
+chown -R $USERNAME:$USERNAME /home/$USERNAME/installer
 EOF
 
     log_info "Copying project into new system at /mnt/root/installer"
     cp -r "$(dirname "$0")/../../" /mnt/home/yb/git/dev/
 
     log_success "Base and post-base configuration complete. You may now reboot manually."
-    
 }
