@@ -36,7 +36,7 @@ run() {
     sudo make -C "$HOME_DIR/git/dwm_config/dwmblocks" install || error "Failed to install dwmblocks"
 
     log "Installing SDDM and required packages"
-    sudo pacman -S --noconfirm sddm xorg xorg-xinit libx11 libxft libxinerama sudo make gcc git
+    sudo pacman -S --noconfirm sddm xorg xorg-xinit libx11 libxft libxinerama make gcc git
 
     log "Installing sddm-chinese-painting-theme from AUR using paru"
     paru -S --noconfirm sddm-chinese-painting-theme || error "Failed to install SDDM theme"
