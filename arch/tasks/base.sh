@@ -16,16 +16,20 @@ log()   { log_info "$1"; }
 HOSTNAME=$(ui_input "Enter hostname") || error "Hostname prompt cancelled"
 USERNAME=$(ui_input "Enter username for new user") || error "Username prompt cancelled"
 
-# Determine CPU microcode package
-device_vendor=$(lscpu | grep -i vendor | awk '{print $3}')
-if [[ "$device_vendor" == "GenuineIntel" ]]; then
-    UCODE="intel-ucode"
-elif [[ "$device_vendor" == "AuthenticAMD" ]]; then
-    UCODE="amd-ucode"
+vendor=$(lscpu | grep -i \"Vendor ID:\" | awk '{print $3}')
+hypervisor=$(lscpu | grep -i \"Hypervisor vendor:\" | awk '{print $3}')
+
+if [[ -n \"$hypervisor\" ]]; then
+    log_warn \"Virtualized system detected under $hypervisor. Skipping microcode.\"
+    UCODE=\"\"
 else
-    error "Unsupported CPU vendor: $device_vendor"
+    case \"$vendor\" in
+        GenuineIntel) UCODE=\"intel-ucode\" ;;
+        AuthenticAMD) UCODE=\"amd-ucode\" ;;
+        *) error \"Unsupported CPU vendor: $vendor\" ;;
+    esac
+    log_info \"Detected CPU vendor: $vendor, using microcode: $UCODE\"
 fi
-log_info "Detected CPU vendor: $device_vendor, using microcode: $UCODE"
 
 # Secure password prompt with confirmation
 echo "Enter root password:" >&2
