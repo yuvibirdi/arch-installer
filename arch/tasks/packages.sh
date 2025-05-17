@@ -18,11 +18,12 @@ run(){
     HOME_DIR=$(eval echo "~$USERNAME")
 
     # packages
-    if[ ! -d "$HOME_DIR/git/" ]; then
-        mkdir "$HOME_DIR/git/"
+    if [ ! -d "$HOME_DIR/git/" ]; then
+        mkdir -p "$HOME_DIR/git/"
     fi
-    if[ ! -d "$HOME_DIR/git/paru" ]; then
-        git clone https://aur.archlinux.org/paru-bin/.git "$HOME_DIR/git/paru"
+
+    if [ ! -d "$HOME_DIR/git/paru" ]; then
+        git clone https://aur.archlinux.org/paru-bin.git "$HOME_DIR/git/paru"
         (cd "$HOME_DIR/git/paru" && makepkg -si --noconfirm)
     fi
     
