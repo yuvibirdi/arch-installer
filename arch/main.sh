@@ -59,7 +59,7 @@ for task in "${TASKS[@]}"; do
         #   EXPANDED_TASKS+=(partition base packages post dev)
         #   ;;
         arch-install)
-            EXPANDED_TASKS+=(partition base packages post)
+            EXPANDED_TASKS+=(partition base)
             ;;
         *)
             EXPANDED_TASKS+=("$task")
