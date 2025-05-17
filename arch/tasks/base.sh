@@ -89,7 +89,7 @@ echo "127.0.0.1   localhost" >> /etc/hosts
 echo "::1         localhost" >> /etc/hosts
 echo "127.0.1.1   $HOSTNAME.localdomain $HOSTNAME" >> /etc/hosts
 
-pacman -Syu --noconfirm grub efibootmgr networkmanager dosfstools mtools neovim sudo emacs os-prober ntfs-3g "${EXTRA_PKGS[@]}"
+pacman -Syu --noconfirm --needed grub efibootmgr networkmanager dosfstools mtools neovim sudo emacs os-prober ntfs-3g "${EXTRA_PKGS[@]}"
 
 # Enable os-prober for GRUB
 sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub || echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub
