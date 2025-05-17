@@ -5,6 +5,14 @@ set -eo pipefail
 source "$REPO_DIR/lib/ui.sh"        # ui_menu, ui_yesno, ui_input …
 source "$REPO_DIR/lib/logging.sh"   # log_info, log_error, log_success …
 
+# Helper functions
+error() {
+	log_error "$1"
+	# echo -e "\e[90m[DEBUG]\e[0m Exiting from ${FUNCNAME[1]} at line ${BASH_LINENO[0]}" >&2
+	exit 1
+}
+info()  { log_warn "$1"; }
+log()   { log_info "$1"; }          
 # Prompt user for config details
 HOSTNAME=$(ui_input "Enter hostname") || error "Hostname prompt cancelled"
 USERNAME=$(ui_input "Enter username for new user") || error "Username prompt cancelled"
