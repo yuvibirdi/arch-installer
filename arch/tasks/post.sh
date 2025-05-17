@@ -42,7 +42,7 @@ run() {
     paru -S --noconfirm sddm-chinese-painting-theme || error "Failed to install SDDM theme"
 
     log "Enabling SDDM service"
-    sudo systemctl enable sddm --now
+    sudo systemctl enable sddm
 
     log "Setting SDDM theme to chinese-painting"
     sudo mkdir -p /etc/sddm.conf.d
