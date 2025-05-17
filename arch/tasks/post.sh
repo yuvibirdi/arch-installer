@@ -21,7 +21,7 @@ run() {
     git clone --recursive https://github.com/yuvibirdi/dotfiles-backup.git "$HOME_DIR/git/dotfiles-backup" || error "Failed to clone dotfiles"
 
     log "Copying dotfiles to home"
-    cp -rfT "$HOME_DIR/git/dotfiles-backup/arch/.files" "$HOME_DIR"
+    cp -rfT "$HOME_DIR/git/dotfiles-backup/arch/..files" "$HOME_DIR"
     cp -rfT "$HOME_DIR/git/dotfiles-backup/arch/.config" "$HOME_DIR/.config"
 
     log "Cloning and building DWM and dwmblocks from GitLab"
