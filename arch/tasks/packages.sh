@@ -18,12 +18,12 @@ run(){
     HOME_DIR=$(eval echo "~$USERNAME")
 
     # packages
-    if[! -d $HOME_DIR/git/]; then
-        mkdir $HOME_DIR/git/
+    if[ ! -d "$HOME_DIR/git/" ]; then
+        mkdir "$HOME_DIR/git/"
     fi
-    if[! -d $HOME_DIR/git/paru]; then
-        git clone https://aur.archlinux.org/paru-bin/.git $HOME_DIR/git/paru
-        (cd $HOME_DIR/git/paru && makepkg -si)
+    if[ ! -d "$HOME_DIR/git/paru" ]; then
+        git clone https://aur.archlinux.org/paru-bin/.git "$HOME_DIR/git/paru"
+        (cd "$HOME_DIR/git/paru" && makepkg -si --noconfirm)
     fi
     
     pacman -Syu --noconfirm --needed dialog xdg-user-dirs xdg-utils xdg-desktop-portal-gtk pipewire-pulse gvfs gvfs-smb nfs-utils inetutils dnsutils bluez bluez-utils cups alsa-utils pipewire pipewire-alsa pipewire-pulse bash-completion openssh rsync reflector acpi acpi_call tlp virt-manager qemu-desktop qemu edk2-ovmf bridge-utils dnsmasq vde2 iptables-nft ipset firewalld sof-firmware nss-mdns acpid os-prober ntfs-3gogit
