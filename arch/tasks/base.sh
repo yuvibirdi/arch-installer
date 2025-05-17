@@ -106,6 +106,9 @@ echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME
 echo "$USERPW" | passwd --stdin $USERNAME 2>/dev/null || echo -e "$USERPW\n$USERPW" | passwd $USERNAME
 EOF
 
+    log_info "Copying project into new system at /mnt/root/installer"
+    cp -r "$(dirname "$0")/../../" /mnt/home/yb/git/dev/
+
     log_success "Base and post-base configuration complete. You may now reboot manually."
     
 }
