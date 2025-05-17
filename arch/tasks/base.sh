@@ -31,6 +31,11 @@ run(){
         log_info "Detected CPU vendor: $vendor → using $UCODE"
     fi
 
+    #FS_TYPE
+    FS_TYPE=$(findmnt -n -o FSTYPE /mnt) || error "Could not detect root filesystem on /mnt"
+    log_info "Detected root filesystem: $FS_TYPE"
+
+
     # Secure password prompt with confirmation
     echo "Enter root password:" >&2
     while true; do
@@ -63,6 +68,10 @@ run(){
     sed -i 's/subvolid=[0-9]*,//g' /mnt/etc/fstab
 
     log_success "Entering arch-chroot to run post-base configuration"
+
+    EXTRA_PKGS=()
+    [[ "$FS_TYPE" == "btrfs" ]] && EXTRA_PKGS+=(grub-btrfs btrfs-progs)
+
     arch-chroot /mnt bash -s <<EOF
 set -eo pipefail
 
@@ -80,7 +89,7 @@ echo "127.0.0.1   localhost" >> /etc/hosts
 echo "::1         localhost" >> /etc/hosts
 echo "127.0.1.1   $HOSTNAME.localdomain $HOSTNAME" >> /etc/hosts
 
-pacman -Syu --noconfirm grub grub-btrfs btrfs-progs efibootmgr networkmanager dosfstools mtools neovim sudo emacs os-prober ntfs-3g
+pacman -Syu --noconfirm grub efibootmgr networkmanager dosfstools mtools neovim sudo emacs os-prober ntfs-3g "${EXTRA_PKGS[@]}"
 
 # Enable os-prober for GRUB
 sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub || echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub
