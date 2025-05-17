@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-#!/usr/bin/env bash
-# tasks/partition.sh  –  your original script, fitted to the task framework
-# ---------------------------------------------------------------------
 run() {
     source "$REPO_DIR/lib/ui.sh"        # ui_menu, ui_yesno, ui_input …
     source "$REPO_DIR/lib/logging.sh"   # log_info, log_error, log_success …
