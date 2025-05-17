@@ -91,7 +91,7 @@ echo "127.0.0.1   localhost" >> /etc/hosts
 echo "::1         localhost" >> /etc/hosts
 echo "127.0.1.1   $HOSTNAME.localdomain $HOSTNAME" >> /etc/hosts
 
-PKG_LIST=(grub efibootmgr networkmanager dosfstools mtools neovim sudo emacs os-prober ntfs-3g "\${EXTRA_PKGS[@]}")
+PKG_LIST=(grub efibootmgr networkmanager dosfstools mtools neovim sudo emacs git fish os-prober ntfs-3g "\${EXTRA_PKGS[@]}")
 
 # Remove any empty strings (just in case)
 FILTERED_PKGS=()
@@ -114,6 +114,7 @@ echo "$ROOTPW" | passwd --stdin root 2>/dev/null || echo -e "$ROOTPW\n$ROOTPW" |
 useradd -m -G wheel,audio,video -s /bin/bash $USERNAME
 echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME
 echo "$USERPW" | passwd --stdin $USERNAME 2>/dev/null || echo -e "$USERPW\n$USERPW" | passwd $USERNAME
+chsh $USERNAME -s /bin/fish
 EOF
     log_info "Copying project into new system at /mnt/home/$USERNAME/git/dev/"
     mkdir -p /mnt/home/$USERNAME/git/
