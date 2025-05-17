@@ -41,19 +41,17 @@ run() {
     log "Installing sddm-chinese-painting-theme from AUR using paru"
     paru -S --noconfirm sddm-chinese-painting-theme || error "Failed to install SDDM theme"
 
-    log "Enabling SDDM service"
-    sudo systemctl enable sddm
 
     log "Setting SDDM theme to chinese-painting"
     sudo mkdir -p /etc/sddm.conf.d
-    cat <<EOF > /etc/sddm.conf.d/theme.conf
+    sudo tee /etc/sddm.conf.d/theme.conf > /dev/null <<EOF
 [Theme]
 Current=chinese-painting
 EOF
 
     log "Creating dwm.desktop file for SDDM"
     sudo mkdir -p /usr/share/xsessions
-    cat <<EOF > /usr/share/xsessions/dwm.desktop
+    sudo tee /usr/share/xsessions/dwm.desktop > /dev/null <<EOF
 [Desktop Entry]
 Encoding=UTF-8
 Name=dwm
@@ -62,6 +60,9 @@ Exec=dwm
 Icon=dwm
 Type=XSession
 EOF
+
+    log "Enabling SDDM service"
+    sudo systemctl enable sddm
 
     log_success "Post-installation complete: dotfiles, dwm, dwmblocks, SDDM, and theme configured."
 }
