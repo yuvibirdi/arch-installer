@@ -1,14 +1,28 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-    source "$REPO_DIR/lib/ui.sh"        # ui_menu, ui_yesno, ui_input …
-    source "$REPO_DIR/lib/logging.sh"   # log_info, log_error, log_success …
+
+source "$REPO_DIR/lib/ui.sh"        # ui_menu, ui_yesno, ui_input …
+source "$REPO_DIR/lib/logging.sh"   # log_info, log_error, log_success …
 
 # Prompt user for config details
 HOSTNAME=$(ui_input "Enter hostname") || error "Hostname prompt cancelled"
 USERNAME=$(ui_input "Enter username for new user") || error "Username prompt cancelled"
-ROOTPW=$(ui_input "Enter root password") || error "Root password prompt cancelled"
-USERPW=$(ui_input "Enter password for $USERNAME") || error "User password prompt cancelled"
+
+# Secure password prompt with confirmation
+echo "Enter root password:" >&2
+while true; do
+    ROOTPW=$(whiptail --passwordbox "Enter root password" 10 60 3>&1 1>&2 2>&3) || error "Root password cancelled"
+    ROOTPW2=$(whiptail --passwordbox "Confirm root password" 10 60 3>&1 1>&2 2>&3) || error "Root password confirmation cancelled"
+    [[ "$ROOTPW" == "$ROOTPW2" ]] && break || whiptail --msgbox "Passwords do not match. Try again." 8 40
+done
+
+echo "Enter password for $USERNAME:" >&2
+while true; do
+    USERPW=$(whiptail --passwordbox "Enter password for $USERNAME" 10 60 3>&1 1>&2 2>&3) || error "User password cancelled"
+    USERPW2=$(whiptail --passwordbox "Confirm password for $USERNAME" 10 60 3>&1 1>&2 2>&3) || error "User password confirmation cancelled"
+    [[ "$USERPW" == "$USERPW2" ]] && break || whiptail --msgbox "Passwords do not match. Try again." 8 40
+done
 
 log_info "Copying project into new system at /mnt/root/installer"
 mkdir -p /mnt/root
@@ -51,11 +65,11 @@ grub-mkconfig -o /boot/grub/grub.cfg
 
 systemctl enable NetworkManager
 
-echo -e "$ROOTPW\n$ROOTPW" | passwd root
+echo "$ROOTPW" | passwd --stdin root 2>/dev/null || echo -e "$ROOTPW\n$ROOTPW" | passwd root
 
 useradd -m -G wheel,audio,video -s /bin/bash $USERNAME
 echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME
-echo -e "$USERPW\n$USERPW" | passwd $USERNAME
+echo "$USERPW" | passwd --stdin $USERNAME 2>/dev/null || echo -e "$USERPW\n$USERPW" | passwd $USERNAME
 EOF
 
 log_success "Base and post-base configuration complete. You may now reboot manually."
