@@ -114,13 +114,9 @@ echo "$ROOTPW" | passwd --stdin root 2>/dev/null || echo -e "$ROOTPW\n$ROOTPW" |
 useradd -m -G wheel,audio,video -s /bin/bash $USERNAME
 echo "$USERNAME ALL=(ALL) ALL" > /etc/sudoers.d/$USERNAME
 echo "$USERPW" | passwd --stdin $USERNAME 2>/dev/null || echo -e "$USERPW\n$USERPW" | passwd $USERNAME
-
-mkdir -p /home/$USERNAME/installer
-cp -r /root/installer/* /home/$USERNAME/installer
-chown -R $USERNAME:$USERNAME /home/$USERNAME/installer
 EOF
-
     log_info "Copying project into new system at /mnt/root/installer"
+    mkdir -p /mnt/home/yb/git/
     cp -r "$(dirname "$0")/../../" /mnt/home/yb/git/dev/
 
     log_success "Base and post-base configuration complete. You may now reboot manually."
