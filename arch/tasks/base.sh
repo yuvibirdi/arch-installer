@@ -1,21 +1,31 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-
 source "$REPO_DIR/lib/ui.sh"        # ui_menu, ui_yesno, ui_input …
 source "$REPO_DIR/lib/logging.sh"   # log_info, log_error, log_success …
 
 # Helper functions
 error() {
 	log_error "$1"
-	# echo -e "\e[90m[DEBUG]\e[0m Exiting from ${FUNCNAME[1]} at line ${BASH_LINENO[0]}" >&2
 	exit 1
 }
 info()  { log_warn "$1"; }
 log()   { log_info "$1"; }          
+
 # Prompt user for config details
 HOSTNAME=$(ui_input "Enter hostname") || error "Hostname prompt cancelled"
 USERNAME=$(ui_input "Enter username for new user") || error "Username prompt cancelled"
+
+# Determine CPU microcode package
+device_vendor=$(lscpu | grep -i vendor | awk '{print $3}')
+if [[ "$device_vendor" == "GenuineIntel" ]]; then
+    UCODE="intel-ucode"
+elif [[ "$device_vendor" == "AuthenticAMD" ]]; then
+    UCODE="amd-ucode"
+else
+    error "Unsupported CPU vendor: $device_vendor"
+fi
+log_info "Detected CPU vendor: $device_vendor, using microcode: $UCODE"
 
 # Secure password prompt with confirmation
 echo "Enter root password:" >&2
@@ -40,7 +50,7 @@ log_info "Optimizing pacman configuration"
 sed -i 's/^#ParallelDownloads = 5$/ParallelDownloads = 15/' /etc/pacman.conf
 
 log_info "Installing base system (pacstrap)"
-pacstrap /mnt base base-devel iptables-nft linux linux-headers intel-ucode linux-firmware
+pacstrap /mnt base base-devel iptables-nft linux linux-headers $UCODE linux-firmware
 
 log_info "Generating fstab"
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -66,7 +76,10 @@ echo "127.0.0.1   localhost" >> /etc/hosts
 echo "::1         localhost" >> /etc/hosts
 echo "127.0.1.1   $HOSTNAME.localdomain $HOSTNAME" >> /etc/hosts
 
-pacman -Syu --noconfirm grub btrfs-progs efibootmgr networkmanager dosfstools mtools vim sudo
+pacman -Syu --noconfirm grub grub-btrfs btrfs-progs efibootmgr networkmanager dosfstools mtools neovim sudo emacs os-prober ntfs-3g
+
+# Enable os-prober for GRUB
+sed -i 's/^#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub || echo 'GRUB_DISABLE_OS_PROBER=false' >> /etc/default/grub
 
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=ARCH
 grub-mkconfig -o /boot/grub/grub.cfg
