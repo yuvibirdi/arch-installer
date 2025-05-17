@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------
-#  main.sh  –  single entry‑point for Yuvraj's Arch‑Installer
+#  main.sh  –  single entry-point for Yuvraj's Arch-Installer
 #
 #  Usage examples:
-#     sudo ./main.sh --task partition
-#     sudo ./main.sh --task partition,arch
-#     sudo ./main.sh --task all -y            # non‑interactive for non‑partition tasks
+#      ./main.sh --task partition
+#      ./main.sh --task partition,arch
+#      ./main.sh --task all -y            # non-interactive for non-partition tasks
 # ---------------------------------------------------------------------
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$REPO_DIR/lib/logging.sh"
 
-
-# ---- command‑line parsing ------------------------------------------
+# ---- command-line parsing ------------------------------------------
 usage() {
   cat << EOF
 Usage: $0 --task <tag>[,<tag>…] [options]
 
 Tags:
   partition      interactive disk/partition setup
-  arch           base Arch installation
+  base           base Arch installation
   dev            developer tooling
   all            partition + arch + dev
+  arch           shortcut for partition + base + packages + post
 
 Options:
-  -t|--task <...>          required; comma‑separated list or 'all'
-  -y|--yes                 non‑interactive for *non‑partition* tasks
+  -t|--task <...>          required; comma-separated list or 'all'
+  -y|--yes                 non-interactive for *non-partition* tasks
   -h|--help                show this help and exit
 EOF
 }
@@ -50,10 +50,22 @@ done
 
 [[ ${#TASKS[@]} -eq 0 ]] && { log_error "No --task supplied"; usage; exit 1; }
 
-# ---- expand meta‑tag 'all' -----------------------------------------
-for i in "${!TASKS[@]}"; do
-  [[ ${TASKS[i]} == "all" ]] && { TASKS=(partition arch dev); break; }
+# ---- expand meta-tags -----------------------------------------
+EXPANDED_TASKS=()
+for task in "${TASKS[@]}"; do
+  case "$task" in
+    all)
+      EXPANDED_TASKS+=(partition base packages post dev)
+      ;;
+    arch)
+      EXPANDED_TASKS+=(partition base packages post)
+      ;;
+    *)
+      EXPANDED_TASKS+=("$task")
+      ;;
+  esac
 done
+TASKS=("${EXPANDED_TASKS[@]}")
 
 # ---- export context for downstream tasks ---------------------------
 export REPO_DIR
