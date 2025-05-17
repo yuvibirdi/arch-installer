@@ -34,6 +34,7 @@ run() {
     log "Building dwmblocks"
     sudo make -C "$HOME_DIR/git/dwm_config/dwmblocks" || error "Failed to build dwmblocks"
     sudo make -C "$HOME_DIR/git/dwm_config/dwmblocks" install || error "Failed to install dwmblocks"
+    sudo cp -rf "$HOME_DIR/git/dwm_config/dwmblocks/" "/opt/"
 
     log "Installing SDDM and required packages"
     sudo pacman -S --noconfirm sddm xorg xorg-xinit libx11 libxft libxinerama make gcc git

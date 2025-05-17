@@ -26,11 +26,11 @@ run(){
         git clone https://aur.archlinux.org/paru-bin.git "$HOME_DIR/git/paru"
         (cd "$HOME_DIR/git/paru" && makepkg -si --noconfirm)
     fi
-    
-    sudo pacman -Syu --noconfirm --needed dialog xdg-user-dirs xdg-utils xdg-desktop-portal-gtk pipewire-pulse gvfs gvfs-smb nfs-utils inetutils dnsutils bluez bluez-utils cups alsa-utils pipewire pipewire-alsa pipewire-pulse bash-completion openssh rsync reflector acpi acpi_call tlp virt-manager qemu-desktop qemu edk2-ovmf bridge-utils dnsmasq vde2 iptables-nft ipset firewalld sof-firmware nss-mdns acpid os-prober ntfs-3g eza 
+
+    sudo pacman -Syu --noconfirm --needed dialog xdg-user-dirs xdg-utils xdg-desktop-portal-gtk pipewire-pulse gvfs gvfs-smb nfs-utils inetutils dnsutils bluez bluez-utils cups alsa-utils pipewire pipewire-alsa pipewire-pulse bash-completion openssh rsync reflector acpi acpi_call tlp virt-manager qemu-desktop qemu edk2-ovmf bridge-utils dnsmasq vde2 iptables-nft ipset firewalld sof-firmware nss-mdns acpid os-prober ntfs-3g eza cmake
 
 
-    paru -Syu --noconfirm --needed alacritty btop code discord dunst emacs fish ttf-jetbrains-mono-nerd lf light mpv neofetch ookla-speedtest-bin qbittorrent spotify spicetify-cli thunar vlc python-pywal zathura zathura-pdf-mupdf zathura-djvu zathura-pywal-git lolcat
+    paru -Syu --noconfirm --needed alacritty btop code discord dunst emacs fish ttf-jetbrains-mono-nerd lf light mpv neofetch ookla-speedtest-bin qbittorrent spotify spicetify-cli thunar vlc python-pywal zathura zathura-pdf-mupdf zathura-djvu zathura-pywal-git lolcat firefox xclip ttf-font-awesome ttf-ubuntu-font-family
 
     ## skipping zathura-epub-mupdf rn cause the package
 }
